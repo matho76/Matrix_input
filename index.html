@@ -8,12 +8,12 @@
     <style>
         :root { --bg: #121212; --accent: #00e676; --card: #1e1e1e; }
         body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .container { background: var(--card); padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
+        .container { background: var(--card); padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; border: 1px solid #333; }
         h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--accent); }
-        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #333; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #444; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         button:disabled { background: #444; color: #888; }
-        #status { font-size: 0.8rem; margin-top: 15px; color: #888; border-top: 1px solid #333; padding-top: 10px; }
+        #status { font-size: 0.8rem; margin-top: 15px; color: #888; padding: 10px; background: #000; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -22,49 +22,45 @@
     <h1>Matrix Messenger</h1>
     <input type="text" id="textInput" placeholder="Enter message..." maxlength="100">
     <button id="sendBtn" onclick="publishMessage()" disabled>CONNECTING...</button>
-    <p id="status">System: Initializing...</p>
+    <div id="status">Checking Credentials...</div>
 </div>
 
 <script>
-    // --- STEP 1: ENTER YOUR DETAILS HERE ---
+    // Credentials updated based on your screenshot
     const AIO_USERNAME = "Matho76"; 
-    const AIO_KEY = "aio_lJoU82LXKqFSXx4nxSmcYJPFgmzG";
+    const AIO_KEY = "aio_VtIj246df2P9TdWLbv5pgPi1VWMC";
     const AIO_FEED = "matrix-text"; 
-    // ---------------------------------------
 
     const btn = document.getElementById('sendBtn');
     const statusTxt = document.getElementById('status');
 
-    // Robust connection options
     const options = {
-        host: 'io.adafruit.com',
-        port: 443,
-        protocol: 'wss',
         username: AIO_USERNAME,
         password: AIO_KEY,
         clientId: 'web_' + Math.random().toString(16).substr(2, 8),
-        path: '/mqtt'
+        clean: true,
+        connectTimeout: 5000,
+        reconnectPeriod: 2000,
     };
 
-    statusTxt.innerText = "System: Attempting Secure Handshake...";
-    const client = mqtt.connect(options);
+    // Connecting via Secure WebSockets
+    const client = mqtt.connect('wss://io.adafruit.com:443/mqtt', options);
 
     client.on('connect', () => { 
         btn.innerText = "UPDATE MATRIX";
         btn.disabled = false;
-        statusTxt.innerText = "System: Cloud Ready (Connected as " + AIO_USERNAME + ")";
+        statusTxt.innerText = "SUCCESS: Cloud Connected as Matho76";
         statusTxt.style.color = "#00e676";
     });
 
     client.on('reconnect', () => {
-        statusTxt.innerText = "System: Retrying connection...";
+        statusTxt.innerText = "Retrying Connection...";
         statusTxt.style.color = "orange";
     });
 
     client.on('error', (err) => {
-        statusTxt.innerText = "Error: Authentication Failed. Check Username/Key.";
-        statusTxt.style.color = "red";
-        console.error(err);
+        statusTxt.innerText = "Error: Authentication Failed.";
+        statusTxt.style.color = "#ff5252";
     });
 
     function publishMessage() {
@@ -73,6 +69,7 @@
         
         const payload = {
             "on": true,
+            "bri": 200,
             "seg": [{
                 "id": 0,
                 "fx": 122, 
@@ -85,7 +82,11 @@
         if (client.connected) {
             client.publish(topic, JSON.stringify(payload));
             btn.innerText = "SENT!";
-            setTimeout(() => { btn.innerText = "UPDATE MATRIX"; }, 2000);
+            btn.style.background = "#fff";
+            setTimeout(() => { 
+                btn.innerText = "UPDATE MATRIX"; 
+                btn.style.background = "#00e676";
+            }, 2000);
         }
     }
 </script>
