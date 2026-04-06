@@ -41,7 +41,7 @@
 
 <script>
     // Connect to HiveMQ public broker
-    const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
     const topic = "wled/Text_screen_input/api";
 
     client.on('connect', () => { console.log("Connected to HiveMQ"); });
