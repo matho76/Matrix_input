@@ -37,19 +37,19 @@
     </div>
 
     <button id="sendBtn" onclick="publishMessage()" disabled>CONNECTING...</button>
-    <p id="status" style="font-size: 0.7rem; margin-top: 10px; color: #666;">Initializing connection...</p>
+    <p id="status" style="font-size: 0.7rem; margin-top: 10px; color: #666;">Trying Port 443...</p>
 </div>
 
 <script>
-    // FIXED: Generate a unique ID so the broker doesn't block the connection
     const clientId = 'wled_user_' + Math.random().toString(16).substr(2, 8);
-    const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt';
+    
+    // UPDATED: Using Port 443 with /mqtt path. This is the most "unblockable" configuration.
+    const brokerUrl = 'wss://broker.hivemq.com:443/mqtt';
     const topic = "wled/Text_screen_input/api";
     
     const btn = document.getElementById('sendBtn');
     const statusTxt = document.getElementById('status');
 
-    // MQTT Options for better stability on mobile
     const options = {
         keepalive: 60,
         clientId: clientId,
@@ -60,25 +60,17 @@
         connectTimeout: 30 * 1000,
     };
 
-    console.log("Attempting to connect with ID:", clientId);
     const client = mqtt.connect(brokerUrl, options);
 
     client.on('connect', () => { 
-        console.log("Connected to HiveMQ Securely!");
         btn.innerText = "UPDATE MATRIX";
         btn.disabled = false;
-        statusTxt.innerText = "Connected: " + clientId;
+        statusTxt.innerText = "Connected Securely (Port 443)";
         statusTxt.style.color = "#00e676";
     });
 
-    client.on('reconnect', () => {
-        statusTxt.innerText = "Reconnecting...";
-        statusTxt.style.color = "orange";
-    });
-
     client.on('error', (err) => {
-        console.error("Connection error: ", err);
-        statusTxt.innerText = "Connection Error";
+        statusTxt.innerText = "Connection Failed. Check Internet.";
         statusTxt.style.color = "red";
     });
 
@@ -87,4 +79,38 @@
         const colorHex = document.getElementById('textColor').value;
         const speed = document.getElementById('speed').value;
 
-        const r = parseInt(colorHex.slice(1
+        const r = parseInt(colorHex.slice(1, 3), 16);
+        const g = parseInt(colorHex.slice(3, 5), 16);
+        const b = parseInt(colorHex.slice(5, 7), 16);
+
+        const payload = {
+            "on": true,
+            "bri": 200,
+            "seg": [{
+                "id": 0,
+                "fx": 122,
+                "n": text,
+                "sx": parseInt(speed),
+                "ix": 128,
+                "col": [[r, g, b], [0, 0, 0], [0, 0, 0]]
+            }]
+        };
+
+        if (client.connected) {
+            client.publish(topic, JSON.stringify(payload), { qos: 0, retain: true });
+            
+            const originalText = btn.innerText;
+            btn.innerText = "SENT!";
+            btn.style.background = "#fff";
+            setTimeout(() => { 
+                btn.innerText = originalText; 
+                btn.style.background = "#00e676";
+            }, 2000);
+        } else {
+            location.reload();
+        }
+    }
+</script>
+
+</body>
+</html>
