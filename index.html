@@ -7,14 +7,14 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root { --bg: #121212; --accent: #00e676; --card: #1e1e1e; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .container { background: var(--card); padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 90%; max-width: 400px; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { background: var(--card); padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 90%; max-width: 400px; text-align: center; }
         h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--accent); }
-        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #333; background: #2c2c2c; color: white; box-sizing: border-box; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #333; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
-        label { font-size: 0.8rem; color: #aaa; display: block; margin-bottom: 5px; }
-        button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
+        label { font-size: 0.8rem; color: #aaa; display: block; margin-bottom: 5px; text-align: left; }
+        button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button:disabled { background: #555; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -36,22 +36,39 @@
         </div>
     </div>
 
-    <button onclick="publishMessage()">UPDATE MATRIX</button>
+    <button id="sendBtn" onclick="publishMessage()">CONNECTING...</button>
+    <p id="status" style="font-size: 0.7rem; margin-top: 10px; color: #666;">Waiting for broker...</p>
 </div>
 
 <script>
-    // Connect to HiveMQ public broker
-    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+    // FIXED: Use WSS (Secure) and Port 8884 for GitHub Pages
+    const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt';
     const topic = "wled/Text_screen_input/api";
+    const btn = document.getElementById('sendBtn');
+    const statusTxt = document.getElementById('status');
 
-    client.on('connect', () => { console.log("Connected to HiveMQ"); });
+    const client = mqtt.connect(brokerUrl);
+
+    client.on('connect', () => { 
+        console.log("Connected to HiveMQ Securely!");
+        btn.innerText = "UPDATE MATRIX";
+        btn.disabled = false;
+        statusTxt.innerText = "Connected to HiveMQ";
+        statusTxt.style.color = "#00e676";
+    });
+
+    client.on('error', (err) => {
+        console.error("Connection error: ", err);
+        statusTxt.innerText = "Connection Error";
+        statusTxt.style.color = "red";
+    });
 
     function publishMessage() {
         const text = document.getElementById('textInput').value || "No Message";
         const colorHex = document.getElementById('textColor').value;
         const speed = document.getElementById('speed').value;
 
-        // Convert hex to RGB array
+        // Convert hex to RGB
         const r = parseInt(colorHex.slice(1, 3), 16);
         const g = parseInt(colorHex.slice(3, 5), 16);
         const b = parseInt(colorHex.slice(5, 7), 16);
@@ -61,26 +78,25 @@
             "bri": 200,
             "seg": [{
                 "id": 0,
-                "fx": 122,      // Scrolling Text Effect
-                "n": text,      // The string to scroll
+                "fx": 122,      // Scrolling Text
+                "n": text,
                 "sx": parseInt(speed),
-                "ix": 128,      // Standard vertical alignment/size
+                "ix": 128,
                 "col": [[r, g, b], [0, 0, 0], [0, 0, 0]]
             }]
         };
 
-        client.publish(topic, JSON.stringify(payload), { qos: 0, retain: true });
-        
-        // Visual feedback
-        const btn = document.querySelector('button');
-        btn.innerText = "SENT!";
-        btn.style.background = "#fff";
-        setTimeout(() => { 
-            btn.innerText = "UPDATE MATRIX"; 
-            btn.style.background = "#00e676";
-        }, 2000);
-    }
-</script>
-
-</body>
-</html>
+        if (client.connected) {
+            client.publish(topic, JSON.stringify(payload), { qos: 0, retain: true });
+            
+            // UI Feedback
+            const originalText = btn.innerText;
+            btn.innerText = "SENT!";
+            btn.style.background = "#fff";
+            setTimeout(() => { 
+                btn.innerText = originalText; 
+                btn.style.background = "#00e676";
+            }, 2000);
+        } else {
+            alert("Not connected to broker yet.");
+        }
