@@ -3,114 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Text Input</title>
+    <title>Matrix Messenger</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root { --bg: #121212; --accent: #00e676; --card: #1e1e1e; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .container { background: var(--card); padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 90%; max-width: 400px; text-align: center; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { background: var(--card); padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
         h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--accent); }
         input[type="text"] { width: 100%; padding: 12px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #333; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
-        label { font-size: 0.8rem; color: #aaa; display: block; margin-bottom: 5px; text-align: left; }
-        button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
-        button:disabled { background: #555; cursor: not-allowed; }
+        button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #444; color: #888; }
+        #status { font-size: 0.8rem; margin-top: 15px; color: #888; border-top: 1px solid #333; padding-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Text Screen Input</h1>
-    
-    <label>Message to Display</label>
-    <input type="text" id="textInput" placeholder="Type message here..." maxlength="100">
-
-    <div class="controls">
-        <div>
-            <label>Text Color</label>
-            <input type="color" id="textColor" value="#00e676" style="width:100%; height:40px; border:none; background:none;">
-        </div>
-        <div>
-            <label>Scroll Speed</label>
-            <input type="range" id="speed" min="50" max="255" value="180" style="width:100%;">
-        </div>
-    </div>
-
+    <h1>Matrix Messenger</h1>
+    <input type="text" id="textInput" placeholder="Enter message..." maxlength="100">
     <button id="sendBtn" onclick="publishMessage()" disabled>CONNECTING...</button>
-    <p id="status" style="font-size: 0.7rem; margin-top: 10px; color: #666;">Trying Port 443...</p>
+    <p id="status">System: Initializing...</p>
 </div>
 
 <script>
-    const clientId = 'wled_user_' + Math.random().toString(16).substr(2, 8);
-    
-    // UPDATED: Using Port 443 with /mqtt path. This is the most "unblockable" configuration.
-    const brokerUrl = 'wss://broker.hivemq.com:443/mqtt';
-    const topic = "wled/Text_screen_input/api";
-    
+    // --- STEP 1: ENTER YOUR DETAILS HERE ---
+    const AIO_USERNAME = "YOUR_ADAFRUIT_USERNAME"; 
+    const AIO_KEY = "YOUR_ADAFRUIT_KEY";
+    const AIO_FEED = "matrix-text"; 
+    // ---------------------------------------
+
     const btn = document.getElementById('sendBtn');
     const statusTxt = document.getElementById('status');
 
+    // Robust connection options
     const options = {
-        keepalive: 60,
-        clientId: clientId,
-        protocolId: 'MQTT',
-        protocolVersion: 4,
-        clean: true,
-        reconnectPeriod: 1000,
-        connectTimeout: 30 * 1000,
+        host: 'io.adafruit.com',
+        port: 443,
+        protocol: 'wss',
+        username: AIO_USERNAME,
+        password: AIO_KEY,
+        clientId: 'web_' + Math.random().toString(16).substr(2, 8),
+        path: '/mqtt'
     };
 
-    const client = mqtt.connect(brokerUrl, options);
+    statusTxt.innerText = "System: Attempting Secure Handshake...";
+    const client = mqtt.connect(options);
 
     client.on('connect', () => { 
         btn.innerText = "UPDATE MATRIX";
         btn.disabled = false;
-        statusTxt.innerText = "Connected Securely (Port 443)";
+        statusTxt.innerText = "System: Cloud Ready (Connected as " + AIO_USERNAME + ")";
         statusTxt.style.color = "#00e676";
     });
 
+    client.on('reconnect', () => {
+        statusTxt.innerText = "System: Retrying connection...";
+        statusTxt.style.color = "orange";
+    });
+
     client.on('error', (err) => {
-        statusTxt.innerText = "Connection Failed. Check Internet.";
+        statusTxt.innerText = "Error: Authentication Failed. Check Username/Key.";
         statusTxt.style.color = "red";
+        console.error(err);
     });
 
     function publishMessage() {
-        const text = document.getElementById('textInput').value || "No Message";
-        const colorHex = document.getElementById('textColor').value;
-        const speed = document.getElementById('speed').value;
-
-        const r = parseInt(colorHex.slice(1, 3), 16);
-        const g = parseInt(colorHex.slice(3, 5), 16);
-        const b = parseInt(colorHex.slice(5, 7), 16);
-
+        const text = document.getElementById('textInput').value || "Hello";
+        const topic = AIO_USERNAME + "/feeds/" + AIO_FEED;
+        
         const payload = {
             "on": true,
-            "bri": 200,
             "seg": [{
                 "id": 0,
-                "fx": 122,
+                "fx": 122, 
                 "n": text,
-                "sx": parseInt(speed),
-                "ix": 128,
-                "col": [[r, g, b], [0, 0, 0], [0, 0, 0]]
+                "sx": 180,
+                "col": [[0, 230, 118], [0, 0, 0], [0, 0, 0]]
             }]
         };
 
         if (client.connected) {
-            client.publish(topic, JSON.stringify(payload), { qos: 0, retain: true });
-            
-            const originalText = btn.innerText;
+            client.publish(topic, JSON.stringify(payload));
             btn.innerText = "SENT!";
-            btn.style.background = "#fff";
-            setTimeout(() => { 
-                btn.innerText = originalText; 
-                btn.style.background = "#00e676";
-            }, 2000);
-        } else {
-            location.reload();
+            setTimeout(() => { btn.innerText = "UPDATE MATRIX"; }, 2000);
         }
     }
 </script>
-
 </body>
 </html>
